@@ -2,81 +2,44 @@ import { trendingData } from "@/lib/constants";
 import { Trend } from "@/types/trend";
 import { calculateDirection, calculateTrendScore } from "@/lib/scoreEngine";
 
-const API_URL = "http://localhost:8000";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+
+async function apiFetch<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`TRENDX API request failed (${response.status})`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
 export async function getBackendTrends(): Promise<Trend[]> {
-  const response = await fetch(`${API_URL}/api/trends`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch backend trends");
-  }
-
-  return response.json();
+  return apiFetch<Trend[]>("/api/trends");
 }
+
 export async function getBackendTrend(slug: string): Promise<Trend> {
-  const response = await fetch(`${API_URL}/api/trend/${slug}`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch backend trend");
-  }
-
-  return response.json();
+  return apiFetch<Trend>(`/api/trend/${encodeURIComponent(slug)}`);
 }
-export async function searchBackendTrends(query: string) {
-  const response = await fetch(
-    `${API_URL}/api/search?q=${encodeURIComponent(query)}`,
-    {
-      cache: "no-store",
-    }
+
+export async function searchBackendTrends(query: string): Promise<Trend[]> {
+  return apiFetch<Trend[]>(`/api/search?q=${encodeURIComponent(query)}`);
+}
+
+export async function compareBackendTrends(leftSlug: string, rightSlug: string) {
+  return apiFetch(
+    `/api/compare/${encodeURIComponent(leftSlug)}/${encodeURIComponent(rightSlug)}`
   );
-
-  if (!response.ok) {
-    throw new Error("Failed to search backend trends");
-  }
-
-  return response.json();
 }
-export async function compareBackendTrends(
-  leftSlug: string,
-  rightSlug: string
-) {
-  const response = await fetch(
-    `${API_URL}/api/compare/${leftSlug}/${rightSlug}`,
-    {
-      cache: "no-store",
-    }
-  );
 
-  if (!response.ok) {
-    throw new Error("Failed to compare backend trends");
-  }
-
-  return response.json();
-}
 export async function getBackendCreator(slug: string) {
-  const response = await fetch(`${API_URL}/api/creator/${slug}`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch backend creator");
-  }
-
-  return response.json();
+  return apiFetch(`/api/creator/${encodeURIComponent(slug)}`);
 }
+
 export async function getBackendRegion(slug: string) {
-  const response = await fetch(`${API_URL}/api/region/${slug}`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch backend region");
-  }
-
-  return response.json();
+  return apiFetch(`/api/region/${encodeURIComponent(slug)}`);
 }
 
 export async function getTrends() {
@@ -116,25 +79,11 @@ function createTrend(
   const engagement = Math.floor(
     baseEngagement + Math.random() * engagementRange
   );
+  const velocity = Math.floor(minVelocity + Math.random() * velocityRange);
+  const sentiment = Math.floor(minSentiment + Math.random() * sentimentRange);
 
-  const velocity = Math.floor(
-    minVelocity + Math.random() * velocityRange
-  );
-
-  const sentiment = Math.floor(
-    minSentiment + Math.random() * sentimentRange
-  );
-
-  const direction = calculateDirection({
-    velocity,
-    sentiment,
-  });
-
-  const score = calculateTrendScore({
-    engagement,
-    velocity,
-    sentiment,
-  });
+  const direction = calculateDirection({ velocity, sentiment });
+  const score = calculateTrendScore({ engagement, velocity, sentiment });
 
   return {
     id,
