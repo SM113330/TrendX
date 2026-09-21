@@ -18,6 +18,18 @@ export interface Trend {
   momentum?: number[];
 
   summary?: string;
+  article_summary?: string | null;
+  key_points?: string[];
+  public_reactions?: Array<{
+    platform: string;
+    author: string;
+    avatar_url?: string | null;
+    text: string;
+    likes: number;
+    published_at?: string | null;
+    video_title?: string | null;
+    url?: string | null;
+  }>;
   analysis?: string;
 
   source?: string;
