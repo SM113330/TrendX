@@ -47,12 +47,38 @@ export async function compareBackendTrends(
   );
 }
 
-export async function getBackendCreator(slug: string) {
-  return apiFetch(`/api/creator/${encodeURIComponent(slug)}`);
+export interface CreatorProfile {
+  id: number;
+  name: string;
+  slug: string;
+  handle: string;
+  reach: string;
+  creator_score: number;
+  amplification: number;
+  momentum: number[];
+  platforms: Array<{ name: string; value: number }>;
+  amplified_trends: Array<{ title: string; slug: string }>;
 }
 
-export async function getBackendRegion(slug: string) {
-  return apiFetch(`/api/region/${encodeURIComponent(slug)}`);
+export interface RegionProfile {
+  id: number;
+  name: string;
+  slug: string;
+  score: number;
+  sentiment: number;
+  velocity: number;
+  categories: Array<{ name: string; value: number }>;
+  top_trends: Array<{ title: string; slug: string }>;
+  creators: Array<{ name: string; slug: string; score: number }>;
+  momentum: number[];
+}
+
+export async function getBackendCreator(slug: string): Promise<CreatorProfile> {
+  return apiFetch<CreatorProfile>(`/api/creator/${encodeURIComponent(slug)}`);
+}
+
+export async function getBackendRegion(slug: string): Promise<RegionProfile> {
+  return apiFetch<RegionProfile>(`/api/region/${encodeURIComponent(slug)}`);
 }
 
 export async function getTrends() {
