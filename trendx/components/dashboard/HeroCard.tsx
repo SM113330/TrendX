@@ -63,7 +63,7 @@ export default function HeroCard() {
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
-      <div className="grid lg:grid-cols-[1.3fr_0.7fr]">
+      <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
         <div className="p-6 sm:p-8 lg:p-10">
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <span className="rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 font-semibold text-green-300">
@@ -106,6 +106,22 @@ export default function HeroCard() {
           </div>
         </div>
 
+        {trend.image_url ? (
+          <div className="relative min-h-64 overflow-hidden border-t border-white/10 bg-black/30 lg:min-h-full lg:border-l lg:border-t-0">
+            <img
+              src={trend.image_url}
+              alt={trend.title}
+              className="absolute inset-0 h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+                {trend.source ?? "Live source"}
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className="border-t border-white/10 bg-black/20 p-6 lg:border-l lg:border-t-0 lg:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
             Live signal
@@ -124,6 +140,7 @@ export default function HeroCard() {
             </p>
           </div>
         </div>
+        )}
       </div>
     </section>
   );
