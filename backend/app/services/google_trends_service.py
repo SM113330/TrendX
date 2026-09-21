@@ -1,10 +1,12 @@
-import re
+import asyncio
 import html
+import re
 from urllib.parse import urljoin
 
 import feedparser
 import requests
 from bs4 import BeautifulSoup
+from googlenewsdecoder import gnews_decoder_async
 
 from app.services.analyst_service import generate_analysis
 from app.services.youtube_service import fetch_youtube_data
@@ -107,27 +109,65 @@ def extract_open_graph_image(article_url: str):
         for attribute, value in candidates:
             tag = soup.find("meta", attrs={attribute: value})
             if tag and tag.get("content"):
-                return urljoin(response.url, tag["content"].strip())
+                candidate = urljoin(response.url, tag["content"].strip())
+                if "googleusercontent.com" not in candidate:
+                    return candidate
 
         image = soup.find("img", src=True)
         if image:
-            return urljoin(response.url, image["src"])
+            candidate = urljoin(response.url, image["src"])
+            if "googleusercontent.com" not in candidate:
+                return candidate
 
     except Exception as error:
-        print("Image metadata fetch failed:", article_url, error)
+        print("Publisher image fetch failed:", article_url, error)
 
     return None
+
+
+def decode_google_links(urls):
+    if not urls:
+        return []
+
+    try:
+        decoded = asyncio.run(
+            gnews_decoder_async(
+                urls,
+                interval=None,
+                proxy=None,
+                timeout=8.0,
+                concurrency=8,
+            )
+        )
+
+        if not isinstance(decoded, list):
+            decoded = [decoded]
+
+        resolved = []
+        for original, result in zip(urls, decoded):
+            if isinstance(result, dict) and result.get("success"):
+                resolved.append(result.get("decoded_url") or original)
+            else:
+                resolved.append(original)
+
+        while len(resolved) < len(urls):
+            resolved.append(urls[len(resolved)])
+
+        return resolved
+    except Exception as error:
+        print("Google News URL decode failed:", error)
+        return urls
 
 
 def infer_category(title: str) -> str:
     text = title.lower()
 
     category_rules = [
-        ("Sports", ["cricket", "football", "ipl", "fifa", "wwe", "tennis", "match", "series win", "world cup"]),
-        ("Technology", ["apple", "iphone", "android", "microsoft", "google", "openai", "ai ", "chip", "tesla", "robot", "software", "tech"]),
+        ("Sports", ["cricket", "football", "ipl", "fifa", "wwe", "tennis", "match", "world cup"]),
+        ("Technology", ["apple", "iphone", "android", "microsoft", "google", "openai", " ai ", "chip", "tesla", "robot", "software", "tech"]),
         ("Entertainment", ["movie", "film", "actor", "actress", "bollywood", "hollywood", "netflix", "trailer", "music", "series"]),
         ("Gaming", ["gaming", "game ", "playstation", "xbox", "nintendo", "steam", "esports"]),
-        ("Business", ["market", "stocks", "shares", "bank", "economy", "trade", "company", "revenue", "funding"]),
+        ("Business", ["market", "stocks", "shares", "bank", "economy", "trade", "company", "revenue", "funding", "fta"]),
     ]
 
     for category, keywords in category_rules:
@@ -157,16 +197,23 @@ def calculate_direction(score: int) -> str:
 
 
 def fetch_google_trends():
-    url = "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en"
-    feed = feedparser.parse(url)
+    feed_url = "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en"
+    feed = feedparser.parse(feed_url)
 
     if not feed.entries:
         print("Google News RSS failed or returned empty.")
         return None
 
+    entries = list(feed.entries[:16])
+    wrapped_urls = [entry.link for entry in entries]
+    publisher_urls = decode_google_links(wrapped_urls)
+
     results = []
 
-    for index, entry in enumerate(feed.entries[:16], start=1):
+    for index, (entry, publisher_url) in enumerate(
+        zip(entries, publisher_urls),
+        start=1,
+    ):
         title = entry.title.split(" - ")[0].strip()
         news_score = max(100 - index * 5, 30)
         velocity = news_score
@@ -185,10 +232,9 @@ def fetch_google_trends():
             velocity_score=news_score,
         )
 
-        article_link = entry.link
         image_url = (
             extract_feed_image(entry)
-            or extract_open_graph_image(article_link)
+            or extract_open_graph_image(publisher_url)
             or youtube_thumbnail
         )
 
@@ -214,7 +260,7 @@ def fetch_google_trends():
                     "instagram": int(news_score * 540),
                 },
                 "source": extract_source(entry),
-                "link": article_link,
+                "link": publisher_url,
                 "image_url": image_url,
             }
         )
