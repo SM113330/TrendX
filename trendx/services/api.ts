@@ -28,8 +28,21 @@ export async function searchBackendTrends(query: string): Promise<Trend[]> {
   return apiFetch<Trend[]>(`/api/search?q=${encodeURIComponent(query)}`);
 }
 
-export async function compareBackendTrends(leftSlug: string, rightSlug: string) {
-  return apiFetch(
+export interface TrendComparison {
+  left: Trend;
+  right: Trend;
+  winner: string;
+  summary: {
+    left_points: number;
+    right_points: number;
+  };
+}
+
+export async function compareBackendTrends(
+  leftSlug: string,
+  rightSlug: string
+): Promise<TrendComparison> {
+  return apiFetch<TrendComparison>(
     `/api/compare/${encodeURIComponent(leftSlug)}/${encodeURIComponent(rightSlug)}`
   );
 }
