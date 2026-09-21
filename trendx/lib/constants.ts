@@ -1,0 +1,58 @@
+import { Trend } from "@/types/trend";
+
+export const trendingData: Trend[] = [
+  {
+    id: 1,
+    title: "Furiosa",
+    category: "Movies",
+    engagement: 128000,
+    velocity: 92,
+    sentiment: 84,
+    direction: "rocket",
+  },
+  {
+    id: 2,
+    title: "iPhone 16 Pro",
+    category: "Tech",
+    engagement: 110000,
+    velocity: 88,
+    sentiment: 91,
+    direction: "rocket",
+  },
+  {
+    id: 3,
+    title: "WWERaw",
+    category: "Sports",
+    engagement: 92000,
+    velocity: 74,
+    sentiment: 80,
+    direction: "up",
+  },
+  {
+    id: 4,
+    title: "Tesla Robotaxi",
+    category: "Tech",
+    engagement: 87000,
+    velocity: 69,
+    sentiment: 66,
+    direction: "up",
+  },
+  {
+    id: 5,
+    title: "OpenAI Sora",
+    category: "AI",
+    engagement: 118000,
+    velocity: 94,
+    sentiment: 89,
+    direction: "rocket",
+  },
+  {
+    id: 6,
+    title: "Crypto Market",
+    category: "Finance",
+    engagement: 68000,
+    velocity: 42,
+    sentiment: 48,
+    direction: "down",
+  },
+];
