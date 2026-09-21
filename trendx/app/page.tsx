@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/Navbar";
 import HeroCard from "../components/dashboard/HeroCard";
@@ -21,7 +23,15 @@ export default function HomePage() {
             </div>
 
             <div className="mt-6">
-              <SearchableTrends />
+              <Suspense
+                fallback={
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-gray-500">
+                    Loading live trends…
+                  </div>
+                }
+              >
+                <SearchableTrends />
+              </Suspense>
             </div>
           </div>
         </section>
