@@ -81,14 +81,14 @@ export default async function ComparePage({ params }: ComparePageProps) {
           <h2 className="mb-3 text-sm font-bold tracking-[0.25em] text-cyan-300">
             {leftDetail.title}
           </h2>
-          <InsightMomentumChart momentum={leftDetail.momentum} />
+          <InsightMomentumChart momentum={leftDetail.momentum ?? []} />
         </div>
 
         <div>
           <h2 className="mb-3 text-sm font-bold tracking-[0.25em] text-purple-300">
             {rightDetail.title}
           </h2>
-          <InsightMomentumChart momentum={rightDetail.momentum} />
+          <InsightMomentumChart momentum={rightDetail.momentum ?? []} />
         </div>
       </div>
     </main>
