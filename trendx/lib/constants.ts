@@ -9,6 +9,7 @@ export const trendingData: Trend[] = [
     velocity: 92,
     sentiment: 84,
     direction: "rocket",
+    score: 92,
   },
   {
     id: 2,
@@ -18,6 +19,7 @@ export const trendingData: Trend[] = [
     velocity: 88,
     sentiment: 91,
     direction: "rocket",
+    score: 91,
   },
   {
     id: 3,
@@ -27,6 +29,7 @@ export const trendingData: Trend[] = [
     velocity: 74,
     sentiment: 80,
     direction: "up",
+    score: 78,
   },
   {
     id: 4,
@@ -36,6 +39,7 @@ export const trendingData: Trend[] = [
     velocity: 69,
     sentiment: 66,
     direction: "up",
+    score: 73,
   },
   {
     id: 5,
@@ -45,6 +49,7 @@ export const trendingData: Trend[] = [
     velocity: 94,
     sentiment: 89,
     direction: "rocket",
+    score: 94,
   },
   {
     id: 6,
@@ -54,5 +59,6 @@ export const trendingData: Trend[] = [
     velocity: 42,
     sentiment: 48,
     direction: "down",
+    score: 61,
   },
 ];
