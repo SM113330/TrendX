@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { ExternalLink, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { getBackendTrends } from "@/services/api";
@@ -25,10 +26,17 @@ function statusFor(trend: Trend) {
 }
 
 export default function SearchableTrends() {
+  const searchParams = useSearchParams();
+  const requestedCategory = searchParams.get("category");
+
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState(requestedCategory ?? "All");
   const [trends, setTrends] = useState<Trend[]>([]);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setCategory(requestedCategory ?? "All");
+  }, [requestedCategory]);
 
   useEffect(() => {
     let mounted = true;
@@ -76,13 +84,13 @@ export default function SearchableTrends() {
   }, [trends, query, category]);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+    <section id="explore" className="scroll-mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
       <div className="border-b border-white/10 p-5 sm:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-xl font-black tracking-tight text-white">Explore trends</h2>
             <p className="mt-1 text-sm text-gray-500">
-              One ranked live feed. No repeated cards.
+              One ranked live feed. Open any story for the full signal view.
             </p>
           </div>
 
@@ -117,43 +125,84 @@ export default function SearchableTrends() {
       {error && trends.length === 0 ? (
         <div className="p-6 text-sm text-red-300">Live trends are temporarily unavailable.</div>
       ) : filtered.length === 0 ? (
-        <div className="p-6 text-sm text-gray-500">No matching live trends.</div>
+        <div className="p-6 text-sm text-gray-500">
+          No live trends in this category right now. Try All.
+        </div>
       ) : (
         <div className="divide-y divide-white/10">
           {filtered.map((trend, index) => {
             const status = statusFor(trend);
 
             return (
-              <Link
+              <div
                 key={trend.slug ?? trend.id}
-                href={`/insight/${slugFor(trend)}`}
-                className="grid gap-3 px-5 py-5 transition hover:bg-white/[0.035] sm:grid-cols-[44px_1fr_auto] sm:items-center sm:px-6"
+                className="grid gap-4 px-5 py-5 transition hover:bg-white/[0.035] sm:grid-cols-[96px_1fr_auto] sm:items-center sm:px-6"
               >
-                <div className="text-sm font-bold text-gray-600">
-                  {String(index + 1).padStart(2, "0")}
-                </div>
+                <Link href={`/insight/${slugFor(trend)}`} className="block">
+                  {trend.image_url ? (
+                    <img
+                      src={trend.image_url}
+                      alt=""
+                      loading="lazy"
+                      className="h-16 w-24 rounded-lg object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-24 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10 text-xs font-bold text-gray-600">
+                      TX
+                    </div>
+                  )}
+                </Link>
 
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="line-clamp-2 font-bold text-white">{trend.title}</h3>
-                    <span className={`text-xs font-semibold ${status.className}`}>
-                      {status.label}
-                    </span>
-                  </div>
+                  <Link href={`/insight/${slugFor(trend)}`} className="block">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-gray-600">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <h3 className="line-clamp-2 font-bold text-white transition hover:text-cyan-200">
+                        {trend.title}
+                      </h3>
+                      <span className={`text-xs font-semibold ${status.className}`}>
+                        {status.label}
+                      </span>
+                    </div>
+                  </Link>
 
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                    <span>{trend.category}</span>
-                    {trend.source && <span>• {trend.source}</span>}
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <button
+                      type="button"
+                      onClick={() => setCategory(trend.category)}
+                      className="rounded bg-white/[0.05] px-2 py-1 transition hover:bg-white/[0.1] hover:text-white"
+                    >
+                      {trend.category}
+                    </button>
+
+                    {trend.source && <span>{trend.source}</span>}
                     <span>• {trend.engagement.toLocaleString()} signals</span>
+
+                    {trend.link && (
+                      <a
+                        href={trend.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-gray-400 transition hover:text-cyan-300"
+                      >
+                        Source <ExternalLink size={11} />
+                      </a>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-5 text-right text-xs sm:min-w-56">
+                <Link
+                  href={`/insight/${slugFor(trend)}`}
+                  className="grid grid-cols-3 gap-5 text-right text-xs sm:min-w-56"
+                >
                   <MiniMetric label="Score" value={String(trend.score)} />
                   <MiniMetric label="Velocity" value={`${trend.velocity}%`} />
                   <MiniMetric label="Sentiment" value={`${trend.sentiment}%`} />
-                </div>
-              </Link>
+                </Link>
+              </div>
             );
           })}
         </div>
