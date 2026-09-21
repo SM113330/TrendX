@@ -8,7 +8,6 @@ import requests
 from bs4 import BeautifulSoup
 from googlenewsdecoder import gnews_decoder_async
 
-from app.services.analyst_service import generate_analysis
 from app.services.youtube_service import fetch_youtube_data
 from app.services.scoring_service import calculate_trend_score
 
@@ -84,45 +83,111 @@ def extract_feed_image(entry):
     return None
 
 
-def extract_open_graph_image(article_url: str):
+def extract_article_brief(article_url: str):
+    fallback = {
+        "image_url": None,
+        "article_summary": None,
+        "key_points": [],
+    }
+
     if not article_url:
-        return None
+        return fallback
 
     try:
         response = requests.get(
             article_url,
             headers=REQUEST_HEADERS,
-            timeout=6,
+            timeout=8,
             allow_redirects=True,
         )
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        candidates = [
+        image_url = None
+        for attribute, value in [
             ("property", "og:image"),
             ("property", "og:image:url"),
             ("name", "twitter:image"),
             ("name", "twitter:image:src"),
-        ]
-
-        for attribute, value in candidates:
+        ]:
             tag = soup.find("meta", attrs={attribute: value})
             if tag and tag.get("content"):
                 candidate = urljoin(response.url, tag["content"].strip())
                 if "googleusercontent.com" not in candidate:
-                    return candidate
+                    image_url = candidate
+                    break
 
-        image = soup.find("img", src=True)
-        if image:
-            candidate = urljoin(response.url, image["src"])
-            if "googleusercontent.com" not in candidate:
-                return candidate
+        description = None
+        for attribute, value in [
+            ("property", "og:description"),
+            ("name", "description"),
+            ("name", "twitter:description"),
+        ]:
+            tag = soup.find("meta", attrs={attribute: value})
+            if tag and tag.get("content"):
+                text = re.sub(r"\s+", " ", tag["content"]).strip()
+                if len(text) >= 60:
+                    description = text
+                    break
+
+        paragraphs = []
+        for paragraph in soup.find_all("p"):
+            text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
+
+            if len(text) < 80:
+                continue
+
+            lowered = text.lower()
+            if any(
+                marker in lowered
+                for marker in [
+                    "subscribe",
+                    "newsletter",
+                    "advertisement",
+                    "read more",
+                    "follow us",
+                    "cookies",
+                    "privacy policy",
+                ]
+            ):
+                continue
+
+            if text not in paragraphs:
+                paragraphs.append(text)
+
+            if len(paragraphs) >= 8:
+                break
+
+        key_points = []
+        for paragraph in paragraphs:
+            sentences = re.split(r"(?<=[.!?])\s+", paragraph)
+
+            for sentence in sentences:
+                sentence = sentence.strip()
+
+                if 70 <= len(sentence) <= 260 and sentence not in key_points:
+                    key_points.append(sentence)
+
+                if len(key_points) >= 4:
+                    break
+
+            if len(key_points) >= 4:
+                break
+
+        article_summary = description
+        if not article_summary and paragraphs:
+            article_summary = paragraphs[0][:500]
+
+        return {
+            "image_url": image_url,
+            "article_summary": article_summary,
+            "key_points": key_points,
+        }
 
     except Exception as error:
-        print("Publisher image fetch failed:", article_url, error)
-
-    return None
+        print("Publisher article fetch failed:", article_url, error)
+        return fallback
 
 
 def decode_google_links(urls):
@@ -232,9 +297,10 @@ def fetch_google_trends():
             velocity_score=news_score,
         )
 
+        article_brief = extract_article_brief(publisher_url)
         image_url = (
             extract_feed_image(entry)
-            or extract_open_graph_image(publisher_url)
+            or article_brief["image_url"]
             or youtube_thumbnail
         )
 
@@ -250,8 +316,11 @@ def fetch_google_trends():
                 "score": scoring["score"],
                 "direction": direction,
                 "momentum": create_momentum(news_score),
-                "summary": create_human_gist(title, getattr(entry, "summary", "")),
-                "analysis": generate_analysis(title, scoring["score"], extract_source(entry)),
+                "summary": article_brief["article_summary"]
+                or create_human_gist(title, getattr(entry, "summary", "")),
+                "article_summary": article_brief["article_summary"],
+                "key_points": article_brief["key_points"],
+                "public_reactions": youtube_data.get("reactions", []),
                 "score_breakdown": scoring["score_breakdown"],
                 "platform_metrics": {
                     "news": news_score * 1000,
