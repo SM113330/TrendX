@@ -9,6 +9,7 @@ import Influencers from "../components/dashboard/Influencers";
 import TrendTimeline from "../components/charts/TrendTimeline";
 import TrendFeed from "../components/dashboard/TrendFeed";
 import MomentumEngine from "../components/dashboard/MomentumEngine";
+import SearchableTrends from "../components/dashboard/SearchableTrends";
 
 export default function HomePage() {
   return (
@@ -36,6 +37,9 @@ export default function HomePage() {
 </div>
 <div className="mt-6">
   <TrendFeed />
+</div>
+<div className="mt-6">
+  <SearchableTrends />
 </div>
 <div className="mt-6">
   <MomentumEngine />
