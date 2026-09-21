@@ -1,10 +1,28 @@
 "use client";
 
+import Link from "next/link";
+import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import TrendCard from "./TrendCard";
 import { getBackendTrends } from "@/services/api";
 import { Trend } from "@/types/trend";
+
+function slugFor(trend: Trend) {
+  if (trend.slug) return trend.slug;
+
+  return trend.title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
+
+function statusFor(trend: Trend) {
+  if (trend.direction === "rocket") return { label: "Exploding", className: "text-yellow-300" };
+  if (trend.direction === "up") return { label: "Rising", className: "text-green-300" };
+  return { label: "Cooling", className: "text-gray-400" };
+}
 
 export default function SearchableTrends() {
   const [query, setQuery] = useState("");
@@ -19,12 +37,11 @@ export default function SearchableTrends() {
       try {
         const data = await getBackendTrends();
         if (!mounted) return;
-        setTrends(data);
+        setTrends([...data].sort((a, b) => b.score - a.score));
         setError(false);
       } catch (loadError) {
-        console.error("Searchable trends failed:", loadError);
-        if (!mounted) return;
-        setError(true);
+        console.error("Trend board failed:", loadError);
+        if (mounted) setError(true);
       }
     }
 
@@ -38,89 +55,118 @@ export default function SearchableTrends() {
   }, []);
 
   const categories = useMemo(
-    () => [
-      "All",
-      ...Array.from(new Set(trends.map((trend) => trend.category))).sort(),
-    ],
+    () => ["All", ...Array.from(new Set(trends.map((trend) => trend.category))).sort()],
     [trends]
   );
 
   const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
 
     return trends.filter((trend) => {
-      const matchesSearch =
-        normalizedQuery.length === 0 ||
-        trend.title.toLowerCase().includes(normalizedQuery) ||
-        trend.category.toLowerCase().includes(normalizedQuery) ||
-        trend.source?.toLowerCase().includes(normalizedQuery);
+      const matchesQuery =
+        q.length === 0 ||
+        trend.title.toLowerCase().includes(q) ||
+        trend.category.toLowerCase().includes(q) ||
+        trend.source?.toLowerCase().includes(q);
 
-      const matchesCategory =
-        category === "All" || trend.category === category;
+      const matchesCategory = category === "All" || trend.category === category;
 
-      return Boolean(matchesSearch && matchesCategory);
+      return Boolean(matchesQuery && matchesCategory);
     });
   }, [trends, query, category]);
 
   return (
-    <section className="rounded-2xl border border-cyan-400/20 bg-white/[0.03] p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-sm font-bold tracking-[0.25em] text-cyan-300">
-            SEARCH LIVE TRENDS
-          </h2>
-          <p className="mt-1 text-xs text-gray-500">
-            Filter the current TRENDX feed by topic, category, or source.
-          </p>
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+      <div className="border-b border-white/10 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h2 className="text-xl font-black tracking-tight text-white">Explore trends</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              One ranked live feed. No repeated cards.
+            </p>
+          </div>
+
+          <div className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 xl:w-80">
+            <Search size={16} className="text-gray-500" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search topics"
+              className="w-full bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
+            />
+          </div>
         </div>
 
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search live topics..."
-          className="w-full rounded-xl border border-cyan-400/20 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-gray-500 lg:w-96"
-        />
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-3">
-        {categories.map((item) => (
-          <button
-            key={item}
-            onClick={() => setCategory(item)}
-            className={`rounded-full border px-4 py-2 text-sm transition ${
-              category === item
-                ? "border-cyan-400 bg-cyan-400/10 text-cyan-300"
-                : "border-white/10 text-gray-400 hover:border-cyan-400/30 hover:text-cyan-300"
-            }`}
-          >
-            {item}
-          </button>
-        ))}
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+          {categories.map((item) => (
+            <button
+              key={item}
+              onClick={() => setCategory(item)}
+              className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+                category === item
+                  ? "bg-white text-black"
+                  : "bg-white/[0.04] text-gray-400 hover:bg-white/[0.07] hover:text-white"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && trends.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-red-400/20 bg-red-400/5 p-5 text-sm text-red-200">
-          Live search is temporarily unavailable. The rest of TRENDX will keep retrying automatically.
-        </div>
-      ) : trends.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-white/10 bg-black/30 p-5 text-sm text-gray-400">
-          Loading live trends...
-        </div>
+        <div className="p-6 text-sm text-red-300">Live trends are temporarily unavailable.</div>
+      ) : filtered.length === 0 ? (
+        <div className="p-6 text-sm text-gray-500">No matching live trends.</div>
       ) : (
-        <>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((trend) => (
-              <TrendCard key={trend.slug ?? trend.id} trend={trend} />
-            ))}
-          </div>
+        <div className="divide-y divide-white/10">
+          {filtered.map((trend, index) => {
+            const status = statusFor(trend);
 
-          {filtered.length === 0 && (
-            <p className="mt-6 text-sm text-gray-500">
-              No current trend matches this search.
-            </p>
-          )}
-        </>
+            return (
+              <Link
+                key={trend.slug ?? trend.id}
+                href={`/insight/${slugFor(trend)}`}
+                className="grid gap-3 px-5 py-5 transition hover:bg-white/[0.035] sm:grid-cols-[44px_1fr_auto] sm:items-center sm:px-6"
+              >
+                <div className="text-sm font-bold text-gray-600">
+                  {String(index + 1).padStart(2, "0")}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="line-clamp-2 font-bold text-white">{trend.title}</h3>
+                    <span className={`text-xs font-semibold ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </div>
+
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <span>{trend.category}</span>
+                    {trend.source && <span>• {trend.source}</span>}
+                    <span>• {trend.engagement.toLocaleString()} signals</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-5 text-right text-xs sm:min-w-56">
+                  <MiniMetric label="Score" value={String(trend.score)} />
+                  <MiniMetric label="Velocity" value={`${trend.velocity}%`} />
+                  <MiniMetric label="Sentiment" value={`${trend.sentiment}%`} />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       )}
     </section>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-gray-600">{label}</p>
+      <p className="mt-1 font-bold text-gray-200">{value}</p>
+    </div>
   );
 }
