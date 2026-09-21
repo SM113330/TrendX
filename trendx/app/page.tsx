@@ -2,13 +2,6 @@ import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/Navbar";
 import HeroCard from "../components/dashboard/HeroCard";
 import LiveEngagement from "../components/dashboard/LiveEngagement";
-import TechBuzz from "../components/dashboard/TechBuzz";
-import TrendingNow from "../components/dashboard/TrendingNow";
-import HeatMap from "../components/dashboard/HeatMap";
-import Influencers from "../components/dashboard/Influencers";
-import TrendTimeline from "../components/charts/TrendTimeline";
-import TrendFeed from "../components/dashboard/TrendFeed";
-import MomentumEngine from "../components/dashboard/MomentumEngine";
 import SearchableTrends from "../components/dashboard/SearchableTrends";
 
 export default function HomePage() {
@@ -17,33 +10,20 @@ export default function HomePage() {
       <div className="flex">
         <Sidebar />
 
-        <section className="ml-20 min-h-screen flex-1 p-6">
-          <Navbar />
+        <section className="ml-20 min-h-screen flex-1 px-4 py-5 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <Navbar />
 
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
             <HeroCard />
-            <LiveEngagement />
+
+            <div className="mt-4">
+              <LiveEngagement />
+            </div>
+
+            <div className="mt-6">
+              <SearchableTrends />
+            </div>
           </div>
-          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
-  <TechBuzz />
-  <TrendingNow />
-</div>
-<div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
-  <HeatMap />
-  <Influencers />
-</div>
-<div className="mt-6">
-  <TrendTimeline />
-</div>
-<div className="mt-6">
-  <TrendFeed />
-</div>
-<div className="mt-6">
-  <SearchableTrends />
-</div>
-<div className="mt-6">
-  <MomentumEngine />
-</div>
         </section>
       </div>
     </main>
