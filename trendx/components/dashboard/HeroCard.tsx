@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, Play } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
+
 import { getBackendTrends } from "@/services/api";
 import { Trend } from "@/types/trend";
 
-function fallbackSlug(title: string) {
-  return title
+function slugFor(trend: Trend) {
+  if (trend.slug) return trend.slug;
+
+  return trend.title
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
@@ -15,238 +18,142 @@ function fallbackSlug(title: string) {
     .trim();
 }
 
-function getHeroLabel(trend: Trend) {
-  if (trend.direction === "rocket") return "LIVE TREND EXPLODING";
-  if (trend.direction === "up") return "LIVE TREND RISING";
-  return "LIVE TREND COOLING";
-}
-
-function shortText(text?: string) {
-  if (!text) {
-    return "This live topic is gaining attention across news and social discovery signals.";
-  }
-
-  return text.length > 220 ? `${text.slice(0, 220)}...` : text;
-}
-
-function shortTitle(title: string) {
-  return title.length > 90 ? `${title.slice(0, 90)}...` : title;
+function statusLabel(trend: Trend) {
+  if (trend.direction === "rocket") return "Exploding";
+  if (trend.direction === "up") return "Rising";
+  return "Cooling";
 }
 
 export default function HeroCard() {
-  const [trends, setTrends] = useState<Trend[]>([]);
-  const [index, setIndex] = useState(0);
-  const [source, setSource] = useState<"backend" | "mock">("backend");
+  const [trend, setTrend] = useState<Trend | null>(null);
 
   useEffect(() => {
-    async function loadHeroTrends() {
+    let mounted = true;
+
+    async function load() {
       try {
         const data = await getBackendTrends();
-        setTrends(data.slice(0, 5));
-        setSource("backend");
+        if (!mounted || data.length === 0) return;
+
+        const lead = [...data].sort((a, b) => b.score - a.score)[0];
+        setTrend(lead);
       } catch (error) {
-        console.error("Hero live backend failed:", error);
-        setSource("mock");
+        console.error("Lead trend failed:", error);
       }
     }
 
-    loadHeroTrends();
+    load();
+    const interval = window.setInterval(load, 30000);
 
-    const refresh = setInterval(loadHeroTrends, 15000);
-
-    return () => clearInterval(refresh);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
-  useEffect(() => {
-    if (trends.length === 0) return;
-
-    const rotate = setInterval(() => {
-      setIndex((current) => (current + 1) % trends.length);
-    }, 8000);
-
-    return () => clearInterval(rotate);
-  }, [trends.length]);
-
-  const active = trends[index];
-
-  if (!active) {
+  if (!trend) {
     return (
-      <section className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-white/[0.03] p-8 shadow-[0_0_40px_rgba(0,240,255,0.08)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(0,240,255,0.18),transparent_35%)]" />
-
-        <div className="relative z-10">
-          <p className="mb-3 text-sm font-bold tracking-[0.35em] text-cyan-300">
-            LIVE TREND SPOTLIGHT
-          </p>
-
-          <h2 className="text-5xl font-black tracking-widest text-yellow-400">
-            LOADING LIVE SIGNALS
-          </h2>
-
-          <p className="mt-5 max-w-md text-sm leading-6 text-gray-300">
-            TRENDX is connecting to the live news intelligence backend.
-          </p>
-        </div>
+      <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-6 sm:p-8">
+        <p className="text-sm text-gray-500">Connecting to live trends…</p>
       </section>
     );
   }
 
-  const slug = active.slug ?? fallbackSlug(active.title);
-  const heroTitle = shortTitle(active.title);
-  const related = trends.filter((trend) => trend.id !== active.id).slice(0, 5);
+  const slug = slugFor(trend);
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-white/[0.03] p-8 shadow-[0_0_40px_rgba(0,240,255,0.08)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(0,240,255,0.18),transparent_35%)]" />
-
-      {active.image_url && (
-        <>
-          <img
-            src={active.image_url}
-            alt={active.title}
-            className="absolute right-0 top-0 h-full w-1/2 object-cover opacity-25"
-          />
-
-          <div className="absolute inset-0 bg-gradient-to-r from-[#050507] via-[#050507]/85 to-transparent" />
-        </>
-      )}
-
-      <div className="relative z-10">
-        <div className="flex items-center justify-between gap-4">
-          <p className="mb-3 text-sm font-bold tracking-[0.35em] text-cyan-300">
-            {getHeroLabel(active)}
-          </p>
-
-          <span
-            className={`rounded-full border px-3 py-1 text-xs ${
-              source === "backend"
-                ? "border-green-400/20 bg-green-400/10 text-green-400"
-                : "border-yellow-400/20 bg-yellow-400/10 text-yellow-300"
-            }`}
-          >
-            {source === "backend" ? "Backend Live" : "Mock"}
-          </span>
-        </div>
-
-        <Link href={`/insight/${slug}`}>
-          <h2 className="max-w-4xl cursor-pointer break-words text-3xl font-black leading-tight tracking-wide text-cyan-300 transition hover:text-cyan-200 md:text-4xl">
-            {heroTitle.toUpperCase()}
-          </h2>
-        </Link>
-
-        <p className="mt-3 text-lg tracking-[0.25em] text-orange-300">
-          {active.category}
-        </p>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <span className="rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-cyan-300">
-            Score {active.score}
-          </span>
-
-          <span className="rounded-full border border-green-400/20 px-3 py-1 text-xs text-green-400">
-            Velocity {active.velocity}%
-          </span>
-
-          <span className="rounded-full border border-purple-400/20 px-3 py-1 text-xs text-purple-300">
-            Sentiment {active.sentiment}%
-          </span>
-
-          {active.source && (
-            <span className="rounded-full border border-orange-400/20 px-3 py-1 text-xs text-orange-300">
-              {active.source}
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+      <div className="grid lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="p-6 sm:p-8 lg:p-10">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className="rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 font-semibold text-green-300">
+              Live
             </span>
-          )}
-        </div>
+            <span className="text-gray-500">{trend.category}</span>
+            {trend.source && <span className="text-gray-500">• {trend.source}</span>}
+          </div>
 
-        <p className="mt-5 max-w-2xl text-sm leading-6 text-gray-300">
-          {shortText(active.summary)}
-        </p>
-
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <Link
-            href={`/insight/${slug}`}
-            className="rounded-lg bg-cyan-500 px-5 py-3 text-sm font-bold text-black shadow-[0_0_25px_rgba(0,240,255,0.45)]"
-          >
-            Track Trend
+          <Link href={`/insight/${slug}`}>
+            <h1 className="mt-5 max-w-4xl text-3xl font-black leading-tight tracking-tight text-white transition hover:text-cyan-200 sm:text-4xl lg:text-5xl">
+              {trend.title}
+            </h1>
           </Link>
 
-          {active.link ? (
-            <a
-              href={active.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/20 px-5 py-3 text-sm text-cyan-300 transition hover:bg-cyan-400/10"
-            >
-              <ExternalLink size={16} />
-              Read Original
-            </a>
-          ) : (
-            <a
-              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
-                active.title
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/20 px-5 py-3 text-sm text-cyan-300 transition hover:bg-cyan-400/10"
-            >
-              <Play size={16} />
-              Watch Related
-            </a>
-          )}
-        </div>
-
-        <div className="mt-6 flex gap-2">
-          {trends.map((trend, trendIndex) => (
-            <button
-              key={trend.slug ?? trend.id}
-              onClick={() => setIndex(trendIndex)}
-              className={`h-2 rounded-full transition-all ${
-                index === trendIndex
-                  ? "w-8 bg-cyan-400"
-                  : "w-2 bg-white/20 hover:bg-cyan-400/60"
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="mt-8">
-          <p className="mb-3 text-xs font-bold tracking-[0.25em] text-cyan-300">
-            RELATED NOW
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-gray-400 sm:text-base">
+            {trend.summary ??
+              "This topic is seeing strong live attention across current TRENDX signals."}
           </p>
 
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {related.map((item) => {
-              const itemSlug = item.slug ?? fallbackSlug(item.title);
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link
+              href={`/insight/${slug}`}
+              className="rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-gray-200"
+            >
+              View trend
+            </Link>
 
-              return (
-                <Link
-                  key={itemSlug}
-                  href={`/insight/${itemSlug}`}
-                  className="min-w-44 rounded-xl border border-cyan-400/20 bg-black/40 p-3 transition hover:border-cyan-400/60 hover:bg-cyan-400/10"
-                >
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt={item.title}
-                      className="mb-3 h-28 w-full rounded-lg object-cover opacity-85"
-                    />
-                  ) : (
-                    <div className="mb-3 h-28 rounded-lg bg-gradient-to-br from-cyan-500/20 via-purple-500/20 to-pink-500/20" />
-                  )}
+            {trend.link && (
+              <a
+                href={trend.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:bg-white/[0.04]"
+              >
+                Original source
+                <ExternalLink size={14} />
+              </a>
+            )}
+          </div>
+        </div>
 
-                  <p className="line-clamp-2 text-sm font-bold leading-tight">
-                    {item.title}
-                  </p>
+        <div className="border-t border-white/10 bg-black/20 p-6 lg:border-l lg:border-t-0 lg:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+            Live signal
+          </p>
 
-                  <p className="mt-1 text-xs text-gray-500">
-                    Score {item.score} · {item.category}
-                  </p>
-                </Link>
-              );
-            })}
+          <div className="mt-6 space-y-5">
+            <Metric label="Trend score" value={trend.score} />
+            <Metric label="Velocity" value={trend.velocity} suffix="%" />
+            <Metric label="Sentiment" value={trend.sentiment} suffix="%" />
+          </div>
+
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <p className="text-sm font-semibold text-white">{statusLabel(trend)}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {trend.engagement.toLocaleString()} tracked signals
+            </p>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  suffix = "",
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-end justify-between gap-4">
+        <span className="text-sm text-gray-500">{label}</span>
+        <span className="text-2xl font-black text-white">
+          {value}
+          {suffix}
+        </span>
+      </div>
+
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-cyan-300"
+          style={{ width: `${Math.max(3, Math.min(value, 100))}%` }}
+        />
+      </div>
+    </div>
   );
 }
