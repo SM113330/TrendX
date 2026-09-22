@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { Search, X } from "lucide-react";
+
 import { searchBackendTrends } from "@/services/api";
 import { Trend } from "@/types/trend";
 
@@ -22,10 +23,10 @@ export default function Navbar() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Trend[]>([]);
   const [searching, setSearching] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState(false);
 
   async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (!query.trim()) return;
 
     try {
@@ -36,6 +37,7 @@ export default function Navbar() {
         router.push(`/insight/${resultSlug(data[0])}`);
         setQuery("");
         setResults([]);
+        setMobileSearch(false);
       }
     } catch (error) {
       console.error("Trend search failed:", error);
@@ -55,8 +57,7 @@ export default function Navbar() {
 
     try {
       setSearching(true);
-      const data = await searchBackendTrends(value);
-      setResults(data);
+      setResults(await searchBackendTrends(value));
     } catch (error) {
       console.error("Trend search failed:", error);
       setResults([]);
@@ -66,66 +67,102 @@ export default function Navbar() {
   }
 
   return (
-    <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <h1 className="text-3xl font-black tracking-[0.25em] sm:text-4xl">
-        TREND<span className="text-cyan-400">X</span>
-      </h1>
+    <header className="relative z-40 mb-3 sm:mb-5">
+      <div className="flex h-14 items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] px-4 backdrop-blur-xl sm:h-16">
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="text-xl font-black tracking-[0.18em] sm:text-2xl"
+        >
+          TREND<span className="text-cyan-400">X</span>
+        </button>
 
-      <div className="flex w-full items-center gap-3 lg:w-auto">
         <form
           onSubmit={handleSearch}
-          className="relative flex min-w-0 flex-1 items-center gap-2 rounded-full border border-cyan-400/20 bg-white/[0.03] px-4 py-2 lg:w-80"
+          className="relative hidden w-80 items-center gap-2 rounded-full border border-white/10 bg-black/25 px-4 py-2.5 md:flex"
         >
-          <Search size={18} className="shrink-0 text-cyan-300" />
-
+          <Search size={17} className="text-cyan-300" />
           <input
             value={query}
             onChange={(event) => void handleChange(event.target.value)}
-            placeholder={searching ? "Searching..." : "Search trending topics..."}
-            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-gray-500"
+            placeholder={searching ? "Searching..." : "Search live trends"}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-600"
           />
-
-          {results.length > 0 && (
-            <div className="absolute left-0 top-12 z-50 w-full rounded-xl border border-cyan-400/20 bg-[#050507] p-2 shadow-[0_0_30px_rgba(0,240,255,0.18)]">
-              {results.map((result) => {
-                const slug = resultSlug(result);
-
-                return (
-                  <button
-                    key={slug || String(result.id)}
-                    type="button"
-                    onClick={() => {
-                      router.push(`/insight/${slug}`);
-                      setQuery("");
-                      setResults([]);
-                    }}
-                    className="w-full rounded-lg p-3 text-left transition hover:bg-cyan-400/10"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="line-clamp-1 font-bold">{result.title}</p>
-                      <p className="shrink-0 text-xs text-cyan-300">
-                        Score {result.score}
-                      </p>
-                    </div>
-
-                    <p className="mt-1 text-xs text-gray-500">
-                      {result.category}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <SearchResults results={results} onSelect={(slug) => {
+            router.push(`/insight/${slug}`);
+            setQuery("");
+            setResults([]);
+          }} />
         </form>
 
         <button
           type="button"
-          aria-label="Notifications"
-          className="shrink-0 rounded-full border border-cyan-400/20 bg-white/[0.03] p-3"
+          onClick={() => setMobileSearch((value) => !value)}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-black/20 text-cyan-200 md:hidden"
+          aria-label="Search trends"
         >
-          <Bell size={18} className="text-cyan-300" />
+          {mobileSearch ? <X size={19} /> : <Search size={19} />}
         </button>
       </div>
+
+      {mobileSearch && (
+        <form
+          onSubmit={handleSearch}
+          className="relative mt-2 flex items-center gap-2 rounded-2xl border border-cyan-400/20 bg-[#0a0a0d]/95 px-4 py-3 shadow-2xl backdrop-blur-xl md:hidden"
+        >
+          <Search size={17} className="text-cyan-300" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => void handleChange(event.target.value)}
+            placeholder={searching ? "Searching..." : "Search live trends"}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-600"
+          />
+          <SearchResults results={results} onSelect={(slug) => {
+            router.push(`/insight/${slug}`);
+            setQuery("");
+            setResults([]);
+            setMobileSearch(false);
+          }} />
+        </form>
+      )}
     </header>
+  );
+}
+
+function SearchResults({
+  results,
+  onSelect,
+}: {
+  results: Trend[];
+  onSelect: (slug: string) => void;
+}) {
+  if (results.length === 0) return null;
+
+  return (
+    <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0f] p-2 shadow-2xl">
+      {results.slice(0, 6).map((result) => {
+        const slug = resultSlug(result);
+
+        return (
+          <button
+            key={slug || String(result.id)}
+            type="button"
+            onClick={() => onSelect(slug)}
+            className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-white/[0.05]"
+          >
+            {result.image_url ? (
+              <img src={result.image_url} alt="" className="h-10 w-12 rounded-lg object-cover" />
+            ) : (
+              <div className="h-10 w-12 rounded-lg bg-white/[0.05]" />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-1 text-sm font-bold">{result.title}</p>
+              <p className="mt-0.5 text-xs text-gray-500">{result.category}</p>
+            </div>
+          </button>
+        );
+      })}
+    </div>
   );
 }
