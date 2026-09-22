@@ -605,6 +605,8 @@ def fetch_google_trends():
                 "article_summary": best_brief["article_summary"],
                 "key_points": best_brief["key_points"],
                 "public_reactions": youtube_data.get("reactions", []),
+                "youtube_video": youtube_data.get("primary_video"),
+                "youtube_videos": youtube_data.get("videos", []),
                 "score_breakdown": scoring["score_breakdown"],
                 "platform_metrics": {
                     "news": news_score * 1000,
