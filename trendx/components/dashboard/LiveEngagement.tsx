@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Activity, Flame, Radio, TrendingUp } from "lucide-react";
 
 import { getBackendTrends } from "@/services/api";
 import { Trend } from "@/types/trend";
@@ -35,34 +36,38 @@ export default function LiveEngagement() {
     };
   }, []);
 
-  const stats = useMemo(() => {
-    const signals = trends.reduce((sum, trend) => sum + trend.engagement, 0);
-    const exploding = trends.filter((trend) => trend.direction === "rocket").length;
-    const rising = trends.filter((trend) => trend.direction === "up").length;
+  const stats = useMemo(() => ({
+    topics: trends.length,
+    signals: trends.reduce((sum, trend) => sum + trend.engagement, 0),
+    exploding: trends.filter((trend) => trend.direction === "rocket").length,
+    rising: trends.filter((trend) => trend.direction === "up").length,
+  }), [trends]);
 
-    return {
-      topics: trends.length,
-      signals,
-      exploding,
-      rising,
-    };
-  }, [trends]);
+  const cards = [
+    { label: "Live topics", value: String(stats.topics), icon: Radio },
+    { label: "Signals", value: compact(stats.signals), icon: Activity },
+    { label: "Exploding", value: String(stats.exploding), icon: Flame },
+    { label: "Rising", value: String(stats.rising), icon: TrendingUp },
+  ];
 
   return (
-    <section className="grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-4">
-      <Stat label="Live topics" value={String(stats.topics)} />
-      <Stat label="Tracked signals" value={compact(stats.signals)} />
-      <Stat label="Exploding" value={String(stats.exploding)} />
-      <Stat label="Rising" value={String(stats.rising)} />
+    <section className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4">
+      {cards.map((card) => {
+        const Icon = card.icon;
+
+        return (
+          <div
+            key={card.label}
+            className="min-w-[136px] flex-1 rounded-2xl border border-white/10 bg-white/[0.035] p-4 backdrop-blur-xl"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-medium text-gray-500">{card.label}</p>
+              <Icon size={14} className="text-cyan-300/80" />
+            </div>
+            <p className="mt-2 text-xl font-black text-white">{card.value}</p>
+          </div>
+        );
+      })}
     </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-[#0a0a0c] px-5 py-4">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-white">{value}</p>
-    </div>
   );
 }
