@@ -20,6 +20,30 @@ export interface Trend {
   summary?: string;
   article_summary?: string | null;
   key_points?: string[];
+  youtube_video?: {
+    video_id: string;
+    title: string;
+    channel_title: string;
+    thumbnail?: string | null;
+    url: string;
+    embed_url: string;
+    views: number;
+    likes: number;
+    comments: number;
+    published_at?: string | null;
+  } | null;
+  youtube_videos?: Array<{
+    video_id: string;
+    title: string;
+    channel_title: string;
+    thumbnail?: string | null;
+    url: string;
+    embed_url: string;
+    views: number;
+    likes: number;
+    comments: number;
+    published_at?: string | null;
+  }>;
   public_reactions?: Array<{
     platform: string;
     author: string;
