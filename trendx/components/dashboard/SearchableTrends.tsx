@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, Search } from "lucide-react";
+import { Search, Zap } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -10,18 +10,12 @@ import { Trend } from "@/types/trend";
 
 function slugFor(trend: Trend) {
   if (trend.slug) return trend.slug;
-
-  return trend.title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
+  return trend.title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").trim();
 }
 
 function statusFor(trend: Trend) {
-  if (trend.direction === "rocket") return { label: "Exploding", className: "text-yellow-300" };
-  if (trend.direction === "up") return { label: "Rising", className: "text-green-300" };
+  if (trend.direction === "rocket") return { label: "Exploding", className: "text-amber-300" };
+  if (trend.direction === "up") return { label: "Rising", className: "text-emerald-300" };
   return { label: "Cooling", className: "text-gray-400" };
 }
 
@@ -34,9 +28,7 @@ export default function SearchableTrends() {
   const [trends, setTrends] = useState<Trend[]>([]);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    setCategory(requestedCategory ?? "All");
-  }, [requestedCategory]);
+  useEffect(() => setCategory(requestedCategory ?? "All"), [requestedCategory]);
 
   useEffect(() => {
     let mounted = true;
@@ -77,145 +69,112 @@ export default function SearchableTrends() {
         trend.category.toLowerCase().includes(q) ||
         trend.source?.toLowerCase().includes(q);
 
-      const matchesCategory = category === "All" || trend.category === category;
-
-      return Boolean(matchesQuery && matchesCategory);
+      return matchesQuery && (category === "All" || trend.category === category);
     });
   }, [trends, query, category]);
 
   return (
-    <section id="explore" className="scroll-mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
-      <div className="border-b border-white/10 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h2 className="text-xl font-black tracking-tight text-white">Explore trends</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              One ranked live feed. Open any story for the full signal view.
-            </p>
-          </div>
+    <section id="explore" className="scroll-mt-4">
+      <div className="mb-3 flex items-end justify-between px-1">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-300/70">Live board</p>
+          <h2 className="mt-1 text-2xl font-black tracking-tight">Trending now</h2>
+        </div>
+        <span className="text-xs text-gray-600">{filtered.length} stories</span>
+      </div>
 
-          <div className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 xl:w-80">
-            <Search size={16} className="text-gray-500" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search topics"
-              className="w-full bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
-            />
-          </div>
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-3 sm:p-5">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-3">
+          <Search size={16} className="text-gray-500" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search the live board"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-600"
+          />
         </div>
 
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {categories.map((item) => (
             <button
               key={item}
               onClick={() => setCategory(item)}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-bold transition ${
                 category === item
-                  ? "bg-white text-black"
-                  : "bg-white/[0.04] text-gray-400 hover:bg-white/[0.07] hover:text-white"
+                  ? "bg-cyan-300 text-black shadow-[0_0_20px_rgba(103,232,249,0.18)]"
+                  : "border border-white/10 bg-white/[0.025] text-gray-400"
               }`}
             >
               {item}
             </button>
           ))}
         </div>
-      </div>
 
-      {error && trends.length === 0 ? (
-        <div className="p-6 text-sm text-red-300">Live trends are temporarily unavailable.</div>
-      ) : filtered.length === 0 ? (
-        <div className="p-6 text-sm text-gray-500">
-          No live trends in this category right now. Try All.
-        </div>
-      ) : (
-        <div className="divide-y divide-white/10">
-          {filtered.map((trend, index) => {
-            const status = statusFor(trend);
+        {error && trends.length === 0 ? (
+          <div className="p-6 text-sm text-red-300">Live trends are temporarily unavailable.</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-6 text-sm text-gray-500">No live trends in this category right now.</div>
+        ) : (
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            {filtered.map((trend, index) => {
+              const status = statusFor(trend);
+              const slug = slugFor(trend);
 
-            return (
-              <div
-                key={trend.slug ?? trend.id}
-                className="grid gap-4 px-5 py-5 transition hover:bg-white/[0.035] sm:grid-cols-[96px_1fr_auto] sm:items-center sm:px-6"
-              >
-                <Link href={`/insight/${slugFor(trend)}`} className="block">
-                  {trend.image_url ? (
-                    <img
-                      src={trend.image_url}
-                      alt=""
-                      loading="lazy"
-                      className="h-16 w-24 rounded-lg object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="flex h-16 w-24 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10 text-xs font-bold text-gray-600">
-                      TX
-                    </div>
-                  )}
-                </Link>
+              return (
+                <Link
+                  key={trend.slug ?? trend.id}
+                  href={`/insight/${slug}`}
+                  className="group overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0d] transition active:scale-[0.995] sm:grid sm:grid-cols-[150px_1fr]"
+                >
+                  <div className="relative h-44 overflow-hidden sm:h-full">
+                    {trend.image_url ? (
+                      <img
+                        src={trend.image_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,0.22),transparent_30%),radial-gradient(circle_at_75%_75%,rgba(168,85,247,0.18),transparent_30%),#101014]" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent sm:bg-gradient-to-r" />
+                    <span className="absolute left-3 top-3 rounded-lg bg-black/55 px-2 py-1 text-[10px] font-bold text-white/80 backdrop-blur">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </div>
 
-                <div className="min-w-0">
-                  <Link href={`/insight/${slugFor(trend)}`} className="block">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-gray-600">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <h3 className="line-clamp-2 font-bold text-white transition hover:text-cyan-200">
-                        {trend.title}
-                      </h3>
-                      <span className={`text-xs font-semibold ${status.className}`}>
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className={`inline-flex items-center gap-1 font-bold ${status.className}`}>
+                        <Zap size={11} />
                         {status.label}
                       </span>
+                      <span className="text-gray-600">{trend.category}</span>
                     </div>
-                  </Link>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                    <button
-                      type="button"
-                      onClick={() => setCategory(trend.category)}
-                      className="rounded bg-white/[0.05] px-2 py-1 transition hover:bg-white/[0.1] hover:text-white"
-                    >
-                      {trend.category}
-                    </button>
+                    <h3 className="mt-2 line-clamp-3 text-base font-black leading-snug text-white">
+                      {trend.title}
+                    </h3>
 
-                    {trend.source && <span>{trend.source}</span>}
-                    <span>• {trend.engagement.toLocaleString()} signals</span>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-gray-500">
+                      {trend.article_summary || trend.summary || trend.source}
+                    </p>
 
-                    {trend.link && (
-                      <a
-                        href={trend.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-gray-400 transition hover:text-cyan-300"
-                      >
-                        Source <ExternalLink size={11} />
-                      </a>
-                    )}
+                    <div className="mt-4 flex items-center justify-between text-[11px] text-gray-600">
+                      <span className="max-w-[55%] truncate">{trend.source}</span>
+                      <div className="flex gap-3">
+                        <span>Score <b className="text-gray-300">{trend.score}</b></span>
+                        <span>Vel <b className="text-gray-300">{trend.velocity}%</b></span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <Link
-                  href={`/insight/${slugFor(trend)}`}
-                  className="grid grid-cols-3 gap-5 text-right text-xs sm:min-w-56"
-                >
-                  <MiniMetric label="Score" value={String(trend.score)} />
-                  <MiniMetric label="Velocity" value={`${trend.velocity}%`} />
-                  <MiniMetric label="Sentiment" value={`${trend.sentiment}%`} />
                 </Link>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </section>
-  );
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-gray-600">{label}</p>
-      <p className="mt-1 font-bold text-gray-200">{value}</p>
-    </div>
   );
 }
