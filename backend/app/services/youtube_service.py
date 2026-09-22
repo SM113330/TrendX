@@ -57,6 +57,11 @@ def fetch_youtube_data(query: str):
 
         reactions = []
 
+        def meaningful_comment(text: str) -> bool:
+            cleaned = " ".join(text.split())
+            letters = sum(char.isalpha() for char in cleaned)
+            return len(cleaned) >= 28 and letters >= 18
+
         for item in items[:3]:
             video_id = item.get("id", {}).get("videoId")
             if not video_id:
@@ -93,7 +98,7 @@ def fetch_youtube_data(query: str):
                 text = (top.get("textDisplay") or "").strip()
                 author = (top.get("authorDisplayName") or "YouTube user").strip()
 
-                if not text:
+                if not text or not meaningful_comment(text):
                     continue
 
                 reactions.append(
