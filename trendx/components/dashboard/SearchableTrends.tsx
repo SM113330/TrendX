@@ -184,6 +184,18 @@ export default function SearchableTrends() {
                 {filtered.map((trend, index) => {
                   const status = statusFor(trend);
                   const slug = slugFor(trend);
+
+                  if (activeMode === "youtube" && index < 3 && trend.youtube_video) {
+                    return (
+                      <YouTubeTrendCard
+                        key={trend.slug ?? trend.id}
+                        trend={trend}
+                        index={index}
+                        slug={slug}
+                      />
+                    );
+                  }
+
                   const platformSignal =
                     activeMode === "youtube"
                       ? compact(trend.platform_metrics?.youtube)
@@ -259,5 +271,80 @@ export default function SearchableTrends() {
         )}
       </div>
     </section>
+  );
+}
+
+
+function YouTubeTrendCard({
+  trend,
+  index,
+  slug,
+}: {
+  trend: Trend;
+  index: number;
+  slug: string;
+}) {
+  const video = trend.youtube_video;
+  const status = statusFor(trend);
+
+  if (!video) return null;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-red-400/15 bg-[#0a0a0d]">
+      <div className="relative aspect-video bg-black">
+        <iframe
+          src={video.embed_url}
+          title={video.title || trend.title}
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full"
+        />
+        <span className="pointer-events-none absolute left-3 top-3 rounded-lg bg-black/65 px-2 py-1 text-[10px] font-bold text-white/85 backdrop-blur">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className={`inline-flex items-center gap-1 font-bold ${status.className}`}>
+            <Zap size={11} />
+            {status.label}
+          </span>
+          <span className="text-red-300">YouTube</span>
+          {video.channel_title && (
+            <span className="truncate text-gray-600">{video.channel_title}</span>
+          )}
+        </div>
+
+        <Link href={`/insight/${slug}`}>
+          <h3 className="mt-2 line-clamp-2 text-base font-black leading-snug text-white transition hover:text-cyan-200">
+            {trend.title}
+          </h3>
+        </Link>
+
+        <p className="mt-2 line-clamp-2 text-xs leading-5 text-gray-500">
+          {trend.article_summary || trend.summary || trend.source}
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+          <span>
+            Views <b className="text-gray-300">{compact(video.views)}</b>
+          </span>
+          <span>
+            Likes <b className="text-gray-300">{compact(video.likes)}</b>
+          </span>
+          <span>
+            Comments <b className="text-gray-300">{compact(video.comments)}</b>
+          </span>
+          <Link
+            href={`/insight/${slug}`}
+            className="ml-auto font-bold text-cyan-300"
+          >
+            Story →
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
