@@ -1,5 +1,6 @@
 import asyncio
 import html
+import json
 import re
 from urllib.parse import urljoin
 
@@ -20,6 +21,48 @@ REQUEST_HEADERS = {
     )
 }
 
+STOPWORDS = {
+    "the", "a", "an", "to", "of", "in", "on", "for", "and", "or", "is", "are",
+    "was", "were", "with", "from", "at", "by", "after", "over", "into", "as",
+    "its", "this", "that", "it", "be", "will", "has", "have", "had", "says",
+}
+
+BOILERPLATE_MARKERS = [
+    "subscribe",
+    "subscription",
+    "premium stories",
+    "premium article",
+    "premium access",
+    "newsletter",
+    "advertisement",
+    "advertising",
+    "read more",
+    "follow us",
+    "cookies",
+    "privacy policy",
+    "terms of use",
+    "terms and conditions",
+    "sign in",
+    "log in",
+    "register",
+    "account",
+    "membership",
+    "exclusive access",
+    "download the app",
+    "app store",
+    "google play",
+    "editorials",
+    "opinions and more",
+    "books of the week",
+    "health matters",
+    "recommended for you",
+    "related stories",
+    "also read",
+    "most popular",
+    "trending stories",
+    "copyright",
+]
+
 
 def create_slug(title: str) -> str:
     slug = title.lower()
@@ -33,23 +76,11 @@ def clean_summary(raw_summary: str) -> str:
     if not raw_summary:
         return ""
 
-    text = re.sub(r"<[^>]+>", " ", raw_summary)
+    soup = BeautifulSoup(raw_summary, "html.parser")
+    text = soup.get_text(" ", strip=True)
     text = html.unescape(text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
-
-
-def create_human_gist(title: str, raw_summary: str) -> str:
-    cleaned = clean_summary(raw_summary)
-
-    if cleaned:
-        return cleaned[:420]
-
-    return (
-        f"{title} is receiving strong live news attention. "
-        "Open the original source for the latest reporting and use TRENDX "
-        "to compare its current momentum with other active stories."
-    )
 
 
 def extract_source(entry) -> str:
@@ -63,31 +94,116 @@ def extract_feed_image(entry):
     try:
         if hasattr(entry, "media_thumbnail") and entry.media_thumbnail:
             return entry.media_thumbnail[0].get("url")
-
         if hasattr(entry, "media_content") and entry.media_content:
             return entry.media_content[0].get("url")
-
         if "media_thumbnail" in entry and entry.media_thumbnail:
             return entry.media_thumbnail[0].get("url")
-
         if "media_content" in entry and entry.media_content:
             return entry.media_content[0].get("url")
-
         if hasattr(entry, "links") and entry.links:
             for link in entry.links:
                 if link.get("type", "").startswith("image"):
                     return link.get("href")
     except Exception:
         pass
-
     return None
 
 
-def extract_article_brief(article_url: str):
+def is_boilerplate(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in BOILERPLATE_MARKERS)
+
+
+def title_keywords(title: str):
+    return {
+        word
+        for word in re.findall(r"[a-z0-9]+", title.lower())
+        if len(word) > 2 and word not in STOPWORDS
+    }
+
+
+def sentence_score(sentence: str, keywords) -> float:
+    lowered = sentence.lower()
+    words = set(re.findall(r"[a-z0-9]+", lowered))
+    overlap = len(words & keywords)
+    length_bonus = min(len(sentence), 220) / 220
+    return overlap * 2.5 + length_bonus
+
+
+def extract_jsonld_article_body(soup: BeautifulSoup):
+    bodies = []
+
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        raw = script.string or script.get_text()
+        if not raw:
+            continue
+
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            continue
+
+        stack = parsed if isinstance(parsed, list) else [parsed]
+
+        while stack:
+            item = stack.pop()
+
+            if isinstance(item, list):
+                stack.extend(item)
+                continue
+
+            if not isinstance(item, dict):
+                continue
+
+            body = item.get("articleBody")
+            if isinstance(body, str) and len(body) > 120:
+                bodies.append(body)
+
+            for value in item.values():
+                if isinstance(value, (dict, list)):
+                    stack.append(value)
+
+    return bodies
+
+
+def collect_article_paragraphs(soup: BeautifulSoup):
+    paragraphs = []
+
+    containers = []
+    article = soup.find("article")
+    main = soup.find("main")
+
+    if article:
+        containers.append(article)
+    if main and main is not article:
+        containers.append(main)
+
+    if not containers:
+        containers = [soup]
+
+    for container in containers:
+        for paragraph in container.find_all("p"):
+            text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
+
+            if len(text) < 70 or len(text) > 1200:
+                continue
+            if is_boilerplate(text):
+                continue
+            if text not in paragraphs:
+                paragraphs.append(text)
+
+            if len(paragraphs) >= 18:
+                return paragraphs
+
+    return paragraphs
+
+
+def extract_article_brief(article_url: str, title: str):
     fallback = {
         "image_url": None,
         "article_summary": None,
         "key_points": [],
+        "quality": 0,
     }
 
     if not article_url:
@@ -103,6 +219,7 @@ def extract_article_brief(article_url: str):
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
+        keywords = title_keywords(title)
 
         image_url = None
         for attribute, value in [
@@ -125,69 +242,96 @@ def extract_article_brief(article_url: str):
             ("name", "twitter:description"),
         ]:
             tag = soup.find("meta", attrs={attribute: value})
-            if tag and tag.get("content"):
-                text = re.sub(r"\s+", " ", tag["content"]).strip()
-                if len(text) >= 60:
-                    description = text
-                    break
-
-        paragraphs = []
-        for paragraph in soup.find_all("p"):
-            text = re.sub(r"\s+", " ", paragraph.get_text(" ", strip=True)).strip()
-
-            if len(text) < 80:
+            if not tag or not tag.get("content"):
                 continue
 
-            lowered = text.lower()
-            if any(
-                marker in lowered
-                for marker in [
-                    "subscribe",
-                    "newsletter",
-                    "advertisement",
-                    "read more",
-                    "follow us",
-                    "cookies",
-                    "privacy policy",
-                ]
+            text = re.sub(r"\s+", " ", tag["content"]).strip()
+            if (
+                80 <= len(text) <= 700
+                and not is_boilerplate(text)
+                and sentence_score(text, keywords) >= 1.0
             ):
-                continue
-
-            if text not in paragraphs:
-                paragraphs.append(text)
-
-            if len(paragraphs) >= 8:
+                description = text
                 break
 
-        key_points = []
+        raw_bodies = extract_jsonld_article_body(soup)
+        paragraphs = []
+
+        for body in raw_bodies:
+            for paragraph in re.split(r"\n{1,}|(?<=[.!?])\s+(?=[A-Z])", body):
+                paragraph = re.sub(r"\s+", " ", paragraph).strip()
+                if 70 <= len(paragraph) <= 1200 and not is_boilerplate(paragraph):
+                    paragraphs.append(paragraph)
+
+        paragraphs.extend(
+            p for p in collect_article_paragraphs(soup) if p not in paragraphs
+        )
+
+        sentences = []
         for paragraph in paragraphs:
-            sentences = re.split(r"(?<=[.!?])\s+", paragraph)
-
-            for sentence in sentences:
+            for sentence in re.split(r"(?<=[.!?])\s+", paragraph):
                 sentence = sentence.strip()
+                if not 70 <= len(sentence) <= 320:
+                    continue
+                if is_boilerplate(sentence):
+                    continue
+                if sentence not in sentences:
+                    sentences.append(sentence)
 
-                if 70 <= len(sentence) <= 260 and sentence not in key_points:
-                    key_points.append(sentence)
+        ranked = sorted(
+            sentences,
+            key=lambda sentence: sentence_score(sentence, keywords),
+            reverse=True,
+        )
 
-                if len(key_points) >= 4:
-                    break
-
+        key_points = []
+        for sentence in ranked:
+            if sentence_score(sentence, keywords) < 1.0 and key_points:
+                continue
+            key_points.append(sentence)
             if len(key_points) >= 4:
                 break
 
         article_summary = description
-        if not article_summary and paragraphs:
-            article_summary = paragraphs[0][:500]
+
+        if not article_summary and ranked:
+            chosen = ranked[:2]
+            article_summary = " ".join(chosen)
+            if len(article_summary) > 620:
+                article_summary = article_summary[:617].rsplit(" ", 1)[0] + "…"
+
+        quality = 0
+        if article_summary:
+            quality += 2
+        quality += min(len(key_points), 4)
 
         return {
             "image_url": image_url,
             "article_summary": article_summary,
             "key_points": key_points,
+            "quality": quality,
         }
 
     except Exception as error:
         print("Publisher article fetch failed:", article_url, error)
         return fallback
+
+
+def extract_related_google_links(raw_summary: str):
+    if not raw_summary:
+        return []
+
+    soup = BeautifulSoup(raw_summary, "html.parser")
+    links = []
+
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"]
+        if "news.google.com" in href and href not in links:
+            links.append(href)
+        if len(links) >= 5:
+            break
+
+    return links
 
 
 def decode_google_links(urls):
@@ -224,15 +368,22 @@ def decode_google_links(urls):
         return urls
 
 
+def build_fallback_summary(title: str, source: str):
+    return (
+        f"{source} is reporting that {title.rstrip('.')}. "
+        "TRENDX is tracking the story because it is receiving strong coverage across multiple current news sources."
+    )
+
+
 def infer_category(title: str) -> str:
-    text = title.lower()
+    text = f" {title.lower()} "
 
     category_rules = [
-        ("Sports", ["cricket", "football", "ipl", "fifa", "wwe", "tennis", "match", "world cup"]),
-        ("Technology", ["apple", "iphone", "android", "microsoft", "google", "openai", " ai ", "chip", "tesla", "robot", "software", "tech"]),
-        ("Entertainment", ["movie", "film", "actor", "actress", "bollywood", "hollywood", "netflix", "trailer", "music", "series"]),
-        ("Gaming", ["gaming", "game ", "playstation", "xbox", "nintendo", "steam", "esports"]),
-        ("Business", ["market", "stocks", "shares", "bank", "economy", "trade", "company", "revenue", "funding", "fta"]),
+        ("Sports", [" cricket ", " football ", " ipl ", " fifa ", " wwe ", " tennis ", " match ", " world cup "]),
+        ("Technology", [" apple ", " iphone ", " android ", " microsoft ", " google ", " openai ", " ai ", " chip ", " tesla ", " robot ", " software ", " tech "]),
+        ("Entertainment", [" movie ", " film ", " actor ", " actress ", " bollywood ", " hollywood ", " netflix ", " trailer ", " music ", " series "]),
+        ("Gaming", [" gaming ", " game ", " playstation ", " xbox ", " nintendo ", " steam ", " esports "]),
+        ("Business", [" market ", " stocks ", " shares ", " bank ", " economy ", " trade ", " company ", " revenue ", " funding ", " fta "]),
     ]
 
     for category, keywords in category_rules:
@@ -280,6 +431,9 @@ def fetch_google_trends():
         start=1,
     ):
         title = entry.title.split(" - ")[0].strip()
+        source = extract_source(entry)
+        raw_summary = getattr(entry, "summary", "")
+
         news_score = max(100 - index * 5, 30)
         velocity = news_score
         sentiment = 75
@@ -297,12 +451,40 @@ def fetch_google_trends():
             velocity_score=news_score,
         )
 
-        article_brief = extract_article_brief(publisher_url)
+        candidate_urls = [publisher_url]
+        related_wrapped = extract_related_google_links(raw_summary)
+        related_decoded = decode_google_links(related_wrapped[:3])
+
+        for url in related_decoded:
+            if url not in candidate_urls:
+                candidate_urls.append(url)
+
+        best_brief = {
+            "image_url": None,
+            "article_summary": None,
+            "key_points": [],
+            "quality": 0,
+        }
+
+        chosen_url = publisher_url
+
+        for candidate_url in candidate_urls[:4]:
+            brief = extract_article_brief(candidate_url, title)
+
+            if brief["quality"] > best_brief["quality"]:
+                best_brief = brief
+                chosen_url = candidate_url
+
+            if brief["quality"] >= 5:
+                break
+
         image_url = (
-            extract_feed_image(entry)
-            or article_brief["image_url"]
+            best_brief["image_url"]
+            or extract_feed_image(entry)
             or youtube_thumbnail
         )
+
+        summary = best_brief["article_summary"] or build_fallback_summary(title, source)
 
         results.append(
             {
@@ -316,10 +498,9 @@ def fetch_google_trends():
                 "score": scoring["score"],
                 "direction": direction,
                 "momentum": create_momentum(news_score),
-                "summary": article_brief["article_summary"]
-                or create_human_gist(title, getattr(entry, "summary", "")),
-                "article_summary": article_brief["article_summary"],
-                "key_points": article_brief["key_points"],
+                "summary": summary,
+                "article_summary": best_brief["article_summary"],
+                "key_points": best_brief["key_points"],
                 "public_reactions": youtube_data.get("reactions", []),
                 "score_breakdown": scoring["score_breakdown"],
                 "platform_metrics": {
@@ -328,8 +509,8 @@ def fetch_google_trends():
                     "x": int(news_score * 850),
                     "instagram": int(news_score * 540),
                 },
-                "source": extract_source(entry),
-                "link": publisher_url,
+                "source": source,
+                "link": chosen_url,
                 "image_url": image_url,
             }
         )
