@@ -45,3 +45,23 @@ img {
   background: rgba(103, 232, 249, 0.28);
   color: white;
 }
+
+
+@keyframes reaction-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.reaction-marquee {
+  animation: reaction-marquee 34s linear infinite;
+}
+
+.reaction-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction-marquee {
+    animation: none;
+  }
+}
