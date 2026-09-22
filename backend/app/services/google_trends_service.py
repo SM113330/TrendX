@@ -28,6 +28,11 @@ STOPWORDS = {
 }
 
 BOILERPLATE_MARKERS = [
+    "this live blog",
+    "live blog is",
+    "rolling curation",
+    "updates added as events unfold",
+    "news agenda changes",
     "subscribe",
     "subscription",
     "premium stories",
@@ -120,6 +125,49 @@ def title_keywords(title: str):
         for word in re.findall(r"[a-z0-9]+", title.lower())
         if len(word) > 2 and word not in STOPWORDS
     }
+
+
+def core_title_keywords(title: str):
+    lowered = title.lower()
+    parts = re.split(
+        r"\s+(?:in|amid|during|following)\s+",
+        lowered,
+        maxsplit=1,
+    )
+    core = parts[0]
+
+    return {
+        word
+        for word in re.findall(r"[a-z0-9]+", core)
+        if len(word) > 2 and word not in STOPWORDS
+    }
+
+
+def normalized_tokens(text: str):
+    return {
+        word
+        for word in re.findall(r"[a-z0-9]+", text.lower())
+        if len(word) > 2 and word not in STOPWORDS
+    }
+
+
+def near_duplicate(left: str, right: str) -> bool:
+    left_tokens = normalized_tokens(left)
+    right_tokens = normalized_tokens(right)
+
+    if not left_tokens or not right_tokens:
+        return False
+
+    intersection = len(left_tokens & right_tokens)
+    union = len(left_tokens | right_tokens)
+
+    if union == 0:
+        return False
+
+    jaccard = intersection / union
+    containment = intersection / min(len(left_tokens), len(right_tokens))
+
+    return jaccard >= 0.62 or containment >= 0.78
 
 
 def sentence_score(sentence: str, keywords) -> float:
@@ -220,6 +268,7 @@ def extract_article_brief(article_url: str, title: str):
 
         soup = BeautifulSoup(response.text, "html.parser")
         keywords = title_keywords(title)
+        core_keywords = core_title_keywords(title)
 
         image_url = None
         for attribute, value in [
@@ -278,19 +327,43 @@ def extract_article_brief(article_url: str, title: str):
                 if sentence not in sentences:
                     sentences.append(sentence)
 
-        ranked = sorted(
-            sentences,
-            key=lambda sentence: sentence_score(sentence, keywords),
-            reverse=True,
+        eligible = []
+
+        for position, sentence in enumerate(sentences):
+            sentence_tokens = normalized_tokens(sentence)
+            title_overlap = len(sentence_tokens & keywords)
+            core_overlap = len(sentence_tokens & core_keywords)
+
+            if title_overlap < 2:
+                continue
+
+            # A sentence should connect to the event itself, not merely reuse
+            # location/context words appearing later in the headline.
+            if core_keywords and core_overlap == 0:
+                continue
+
+            score = sentence_score(sentence, keywords)
+            score += core_overlap * 2.0
+            score -= position * 0.015
+
+            eligible.append((score, position, sentence))
+
+        ranked_items = sorted(
+            eligible,
+            key=lambda item: (-item[0], item[1]),
         )
 
         key_points = []
-        for sentence in ranked:
-            if sentence_score(sentence, keywords) < 1.0 and key_points:
+        for _, _, sentence in ranked_items:
+            if any(near_duplicate(sentence, existing) for existing in key_points):
                 continue
+
             key_points.append(sentence)
+
             if len(key_points) >= 4:
                 break
+
+        ranked = [item[2] for item in ranked_items]
 
         article_summary = description
 
