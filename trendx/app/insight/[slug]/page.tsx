@@ -5,6 +5,8 @@ import Navbar from "@/components/layout/Navbar";
 import { getBackendTrend } from "@/services/api";
 import { Trend } from "@/types/trend";
 import LiveReactions from "@/components/insight/LiveReactions";
+import ReactionTicker from "@/components/insight/ReactionTicker";
+import TopComments from "@/components/insight/TopComments";
 
 interface InsightPageProps {
   params: Promise<{ slug: string }>;
@@ -67,6 +69,12 @@ export default async function InsightPage({ params }: InsightPageProps) {
         </Link>
 
         <Navbar />
+
+        {reactions.length > 0 && (
+          <div className="mt-3">
+            <ReactionTicker reactions={reactions} />
+          </div>
+        )}
 
         <article className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
           {detail.image_url && (
@@ -150,6 +158,8 @@ export default async function InsightPage({ params }: InsightPageProps) {
             </aside>
           </div>
         </article>
+
+        <TopComments reactions={reactions} />
 
       </div>
     </main>
