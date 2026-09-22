@@ -170,6 +170,28 @@ def near_duplicate(left: str, right: str) -> bool:
     return jaccard >= 0.62 or containment >= 0.78
 
 
+def is_low_context_sentence(sentence: str) -> bool:
+    lowered = sentence.strip().lower()
+
+    if sentence.strip().endswith("?"):
+        return True
+
+    if re.match(r"^(he|she|they|it|this|that|these|those)\s+(is|are|was|were|has|have|had|will|would|also)\b", lowered):
+        return True
+
+    caption_markers = [
+        "speak to reporters during",
+        "speaks to reporters during",
+        "pictured during",
+        "seen during",
+        "in this photo",
+        "file photo",
+        "photo shows",
+    ]
+
+    return any(marker in lowered for marker in caption_markers)
+
+
 def sentence_score(sentence: str, keywords) -> float:
     lowered = sentence.lower()
     words = set(re.findall(r"[a-z0-9]+", lowered))
@@ -327,23 +349,31 @@ def extract_article_brief(article_url: str, title: str):
                 if sentence not in sentences:
                     sentences.append(sentence)
 
+        description_keywords = title_keywords(description or "")
+
         eligible = []
 
         for position, sentence in enumerate(sentences):
+            if is_low_context_sentence(sentence):
+                continue
+
             sentence_tokens = normalized_tokens(sentence)
             title_overlap = len(sentence_tokens & keywords)
             core_overlap = len(sentence_tokens & core_keywords)
+            description_overlap = len(sentence_tokens & description_keywords)
 
-            if title_overlap < 2:
+            # Require a strong connection to the headline OR the publisher's
+            # own article summary. This allows factual follow-up details such
+            # as FIR/arrest information without admitting side commentary.
+            if title_overlap < 2 and description_overlap < 2:
                 continue
 
-            # A sentence should connect to the event itself, not merely reuse
-            # location/context words appearing later in the headline.
-            if core_keywords and core_overlap == 0:
+            if core_keywords and core_overlap == 0 and description_overlap < 2:
                 continue
 
             score = sentence_score(sentence, keywords)
             score += core_overlap * 2.0
+            score += description_overlap * 1.5
             score -= position * 0.015
 
             eligible.append((score, position, sentence))
