@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Globe2, Home, MessageCircleMore, Search, Youtube } from "lucide-react";
+import { Globe2, Home, MessageCircleMore, Search, Play } from "lucide-react";
 
 const menu = [
   { name: "Overall", icon: Home, href: "/?platform=overall#explore" },
   { name: "Google", icon: Search, href: "/?platform=google#explore" },
-  { name: "YouTube", icon: Youtube, href: "/?platform=youtube#explore" },
+  { name: "YouTube", icon: Play, href: "/?platform=youtube#explore" },
   { name: "X", icon: MessageCircleMore, href: "/?platform=x#explore" },
   { name: "Facebook", icon: Globe2, href: "/?platform=facebook#explore" },
 ];
