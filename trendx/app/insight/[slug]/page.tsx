@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, ThumbsUp } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 
 import Navbar from "@/components/layout/Navbar";
 import { getBackendTrend } from "@/services/api";
 import { Trend } from "@/types/trend";
+import LiveReactions from "@/components/insight/LiveReactions";
 
 interface InsightPageProps {
   params: Promise<{ slug: string }>;
@@ -132,74 +133,24 @@ export default async function InsightPage({ params }: InsightPageProps) {
               )}
             </div>
 
-            <aside className="h-fit rounded-xl border border-white/10 bg-black/25 p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
-                Trend activity
-              </p>
+            <aside className="space-y-4 lg:sticky lg:top-6 lg:h-fit">
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
+                  Trend activity
+                </p>
 
-              <div className="mt-5 space-y-4">
-                <Activity label="Trend score" value={String(detail.score)} />
-                <Activity label="Velocity" value={`${detail.velocity}%`} />
-                <Activity label="Tracked signals" value={compact(detail.engagement)} />
+                <div className="mt-5 space-y-4">
+                  <Activity label="Trend score" value={String(detail.score)} />
+                  <Activity label="Velocity" value={`${detail.velocity}%`} />
+                  <Activity label="Tracked signals" value={compact(detail.engagement)} />
+                </div>
               </div>
+
+              <LiveReactions reactions={reactions} />
             </aside>
           </div>
         </article>
 
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
-          <div>
-            <h2 className="text-xl font-black text-white">Public reactions</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Real public comments from related platform coverage when available.
-            </p>
-          </div>
-
-          {reactions.length === 0 ? (
-            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-5 text-sm text-gray-500">
-              No public reactions are available for this story yet.
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-4 lg:grid-cols-3">
-              {reactions.slice(0, 3).map((reaction, index) => (
-                <a
-                  key={`${reaction.author}-${index}`}
-                  href={reaction.url ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-xl border border-white/10 bg-black/20 p-5 transition hover:border-white/20 hover:bg-white/[0.035]"
-                >
-                  <div className="flex items-center gap-3">
-                    {reaction.avatar_url ? (
-                      <img
-                        src={reaction.avatar_url}
-                        alt=""
-                        className="h-9 w-9 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-9 w-9 rounded-full bg-white/10" />
-                    )}
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-white">
-                        {reaction.author}
-                      </p>
-                      <p className="text-xs text-red-300">{reaction.platform}</p>
-                    </div>
-                  </div>
-
-                  <p className="mt-4 line-clamp-6 text-sm leading-6 text-gray-300">
-                    {reaction.text}
-                  </p>
-
-                  <div className="mt-4 flex items-center gap-1.5 text-xs text-gray-500">
-                    <ThumbsUp size={13} />
-                    {reaction.likes.toLocaleString()}
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
       </div>
     </main>
   );
