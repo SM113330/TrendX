@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Film, Gamepad2, Home, Newspaper, Sparkles, Trophy } from "lucide-react";
+import { Globe2, Home, MessageCircleMore, Search, Youtube } from "lucide-react";
 
 const menu = [
-  { name: "Home", icon: Home, href: "/" },
-  { name: "Movies", icon: Film, href: "/?category=Entertainment#explore" },
-  { name: "Tech", icon: Sparkles, href: "/?category=Technology#explore" },
-  { name: "Gaming", icon: Gamepad2, href: "/?category=Gaming#explore" },
-  { name: "News", icon: Newspaper, href: "/?category=Live%20News#explore" },
-  { name: "Sports", icon: Trophy, href: "/?category=Sports#explore" },
+  { name: "Overall", icon: Home, href: "/?platform=overall#explore" },
+  { name: "Google", icon: Search, href: "/?platform=google#explore" },
+  { name: "YouTube", icon: Youtube, href: "/?platform=youtube#explore" },
+  { name: "X", icon: MessageCircleMore, href: "/?platform=x#explore" },
+  { name: "Facebook", icon: Globe2, href: "/?platform=facebook#explore" },
 ];
 
 export default function Sidebar() {
@@ -44,7 +43,7 @@ export default function Sidebar() {
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#070709]/92 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-2xl md:hidden">
         <div className="mx-auto grid max-w-lg grid-cols-5">
-          {menu.filter((item) => ["Home", "News", "Tech", "Sports", "Movies"].includes(item.name)).map((item) => {
+          {menu.map((item) => {
             const Icon = item.icon;
 
             return (
