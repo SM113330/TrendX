@@ -44,7 +44,41 @@ def fetch_youtube_data(query: str):
             return _empty_result()
 
         items = data.get("items", [])
-        signal = len(items) * 25000
+        video_ids = [
+            item.get("id", {}).get("videoId")
+            for item in items
+            if item.get("id", {}).get("videoId")
+        ]
+
+        signal = 0
+
+        if video_ids:
+            stats_url = "https://www.googleapis.com/youtube/v3/videos"
+            stats_params = {
+                "part": "statistics",
+                "id": ",".join(video_ids),
+                "key": youtube_api_key,
+            }
+
+            stats_response = requests.get(
+                stats_url,
+                params=stats_params,
+                timeout=10,
+            )
+
+            if stats_response.status_code == 200:
+                for video in stats_response.json().get("items", []):
+                    stats = video.get("statistics", {})
+                    views = int(stats.get("viewCount") or 0)
+                    likes = int(stats.get("likeCount") or 0)
+                    comments = int(stats.get("commentCount") or 0)
+
+                    # Views dominate, while likes/comments add extra weight
+                    # for stories generating active participation.
+                    signal += views + likes * 8 + comments * 40
+
+        if signal <= 0:
+            signal = len(items) * 25000
 
         thumbnail = None
         if items:
@@ -71,7 +105,7 @@ def fetch_youtube_data(query: str):
             comment_params = {
                 "part": "snippet",
                 "videoId": video_id,
-                "maxResults": 5,
+                "maxResults": 8,
                 "order": "relevance",
                 "textFormat": "plainText",
                 "key": youtube_api_key,
@@ -114,7 +148,7 @@ def fetch_youtube_data(query: str):
                     }
                 )
 
-            if reactions:
+            if len(reactions) >= 3:
                 break
 
         reactions.sort(key=lambda item: item.get("likes", 0), reverse=True)
