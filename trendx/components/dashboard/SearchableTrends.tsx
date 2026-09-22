@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Globe2, MessageCircleMore, Search, Youtube, Zap } from "lucide-react";
+import { Globe2, MessageCircleMore, Search, Play, Zap } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -18,7 +18,7 @@ const modes: Array<{
 }> = [
   { id: "overall", label: "Overall", icon: Globe2, connected: true },
   { id: "google", label: "Google", icon: Search, connected: true },
-  { id: "youtube", label: "YouTube", icon: Youtube, connected: true },
+  { id: "youtube", label: "YouTube", icon: Play, connected: true },
   { id: "x", label: "X", icon: MessageCircleMore, connected: false },
   { id: "facebook", label: "Facebook", icon: Globe2, connected: false },
 ];
